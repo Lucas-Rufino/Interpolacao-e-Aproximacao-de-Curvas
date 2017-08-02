@@ -68,6 +68,7 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
         for(var j=0, n=this.interPoints.length-1 ; j<=n ; j++){
             bern.push([]);
             for(var i=0 ; i<=n ; i++){
+                var pct = (1.0 - Math.cos(Math.PI*(j/n)))/2.0
                 bern[j].push(this.bernstein(n, i, j/n));
             }
         }
