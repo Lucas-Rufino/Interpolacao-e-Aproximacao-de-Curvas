@@ -1,3 +1,13 @@
+function displayFunction(){
+    rbFunction(0);
+    document.getElementById('remove').checked = true;
+    if(document.getElementById('cbInterpolation').checked){
+        document.getElementById('function').style.display = 'block';
+    } else{
+        document.getElementById('function').style.display = 'none';
+    }
+}
+
 function insertCurve(){
     if(document.getElementById('cbAll').checked){
         var cbPoint = document.getElementById('cbPoint').checked
@@ -5,12 +15,13 @@ function insertCurve(){
         var cbCurve = document.getElementById('cbCurve').checked
         var nfEvaluation = document.getElementById('nfEvaluation').value
         var cbInterpolation = document.getElementById('cbInterpolation').checked
+        var cbExtrapolation = document.getElementById('cbExtrapolation').checked
         m.sendMessage('insertCurve', {
-            data: [cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation]
+            data: [cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation, cbExtrapolation]
         });
     } else {
         m.sendMessage('insertCurve', {
-            data: [true, true, true, 200, false]
+            data: [true, true, true, 200, false, false]
         });
     }
 }
@@ -58,9 +69,17 @@ function selectCBCurve(){
 }
 
 function selectCBInterpolation(){
-    var cbInterpolation = document.getElementById('cbInterpolation').checked
+    var cbInterpolation = document.getElementById('cbInterpolation').checked;
+    displayFunction();
     m.sendMessage('selectCBInterpolation', {
         data: cbInterpolation
+    });
+}
+
+function selectCBExtrapolation(){
+    var cbExtrapolation = document.getElementById('cbExtrapolation').checked
+    m.sendMessage('selectCBExtrapolation', {
+        data: cbExtrapolation
     });
 }
 
@@ -76,4 +95,10 @@ function modifyEvaluation(){
         });
         nfEvaluation.value = 0;
     }
+}
+
+function rbFunction(n){
+    m.sendMessage('changeFunction', {
+        data: n
+    });
 }

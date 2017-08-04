@@ -22,12 +22,13 @@ var colors=[['#1abc9c', true],
             ['#2c3e50', true],];
 var curves = [];
 var index = -1;
+var func = 0;
 var cbAll = false;
 
 insertGrid();
-insertCurve([true, true, true, 200, false]);
+insertCurve([true, true, true, 200, false, false]);
 
-function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation) {
+function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation, cbExtrapolation) {
     var controlPoints;
     var controlPath;
     var curvePath;
@@ -36,6 +37,7 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
     var cbCurve;
     var nfEvaluation;
     var cbInterpolation;
+    var cbExtrapolation;
     var color;
     var pascal;
 
@@ -49,6 +51,7 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
     this.cbCurve = cbCurve;
     this.nfEvaluation = nfEvaluation;
     this.cbInterpolation = cbInterpolation;
+    this.cbExtrapolation = cbExtrapolation;
     this.pascal = [];
     
     this.calcPascal = function(){
@@ -68,8 +71,8 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
         for(var j=0, n=this.interPoints.length-1 ; j<=n ; j++){
             bern.push([]);
             for(var i=0 ; i<=n ; i++){
-                var pct = (1.0 - Math.cos(Math.PI*(j/n)))/2.0
-                bern[j].push(this.bernstein(n, i, j/n));
+                var pct = Math.pow(Math.sin(Math.PI*(j/n)/2), 2);
+                bern[j].push(this.bernstein(n, i, pct));
             }
         }
         for(var i=0, n=this.interPoints.length-1 ; i<=n ; i++){
@@ -144,6 +147,10 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
     this.getCBInterpolation = function(){
         return this.cbInterpolation;
     };
+    
+    this.getCBExtrapolation = function(){
+        return this.cbExtrapolation;
+    };
 
     this.setCBPoints = function(value){
         this.cbPoints = value;
@@ -163,10 +170,19 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
     
     this.setCBInterpolation = function(value){
         this.cbInterpolation = value;
+        if(!this.cbInterpolation){
+            for(var i=0, len=this.controlPoints.length ; i<len ; i++){
+                this.controlPoints[i][1] = true;
+            }
+        }
+    };
+    
+    this.setCBExtrapolation = function(value){
+        this.cbExtrapolation = value;
     };
 
     this.insertPoint = function(x, y){
-        this.controlPoints.push(new Circle(x, y, radius_circle).fill(base_color).stroke(colors[this.color][0], stroke_circle).addTo(stage));
+        this.controlPoints.push([new Circle(x, y, radius_circle).fill(base_color).stroke(colors[this.color][0], stroke_circle).addTo(stage), true]);
         if(this.controlPath.segments().length === 0) this.controlPath.moveTo(x, y);
         else this.controlPath.lineTo(x, y);
         this.calcPascal();
@@ -174,13 +190,13 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
 
     this.removePoint = function(obj){
         for(var i=0 ; i<this.controlPoints.length ; i++){
-            if(this.controlPoints[i] == obj){
-                stage.removeChild(this.controlPoints[i]);
+            if(this.controlPoints[i][0] == obj){
+                stage.removeChild(this.controlPoints[i][0]);
                 this.controlPoints.splice(i, 1);
                 this.controlPath.clear();
                 for(var i=0 ; i<this.controlPoints.length ; i++){
-                    if(this.controlPath.segments().length === 0) this.controlPath.moveTo(this.controlPoints[i].attr('x'), this.controlPoints[i].attr('y'));
-                    else this.controlPath.lineTo(this.controlPoints[i].attr('x'), this.controlPoints[i].attr('y'));
+                    if(this.controlPath.segments().length === 0) this.controlPath.moveTo(this.controlPoints[i][0].attr('x'), this.controlPoints[i][0].attr('y'));
+                    else this.controlPath.lineTo(this.controlPoints[i][0].attr('x'), this.controlPoints[i][0].attr('y'));
                 }
                 break;
             }
@@ -190,13 +206,13 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
     this.redraw = function(id = -1){
         if(this.cbPoints){
             for(var i=0 ; i<this.controlPoints.length ; i++){
-                this.controlPoints[i].attr('radius', radius_circle);
-                this.controlPoints[i].attr('strokeWidth', stroke_circle);
+                this.controlPoints[i][0].attr('radius', radius_circle);
+                this.controlPoints[i][0].attr('strokeWidth', stroke_circle);
             }
         } else {
             for(var i=0 ; i<this.controlPoints.length ; i++){
-                this.controlPoints[i].attr('radius', 0);
-                this.controlPoints[i].attr('strokeWidth', 0);
+                this.controlPoints[i][0].attr('radius', 0);
+                this.controlPoints[i][0].attr('strokeWidth', 0);
             }
         }
 
@@ -213,29 +229,60 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
     this.redrawControl = function(id){
         var circleIndex = this.searchCircle(id);
         var segments = this.controlPath.segments();
-        segments[circleIndex][1] = this.controlPoints[circleIndex].attr('x');
-        segments[circleIndex][2] = this.controlPoints[circleIndex].attr('y');
+        segments[circleIndex][1] = this.controlPoints[circleIndex][0].attr('x');
+        segments[circleIndex][2] = this.controlPoints[circleIndex][0].attr('y');
         this.controlPath.segments(segments);
     };
-
+    
     this.redrawCurve = function(){
         if(this.controlPoints.length >= 2){
             if(this.cbInterpolation) this.calcInterpolation();
+            
+            var step = 1/this.nfEvaluation;
+            var aux = (this.cbInterpolation ? this.interPoints : this.controlPath.segments());
+            var count = 0;
+            
             this.curvePath.clear();
-            this.curvePath.moveTo(this.controlPoints[0].attr('x'), this.controlPoints[0].attr('y'));
+            this.curvePath.moveTo(this.controlPoints[0][0].attr('x'), this.controlPoints[0][0].attr('y'));
+            for(var t=-step ; this.cbExtrapolation ; t-=step){
+                var x = 0, y = 0;
+                var pct = (this.cbInterpolation ? Math.floor((t+1)/2)*2+(Math.pow(-1, Math.floor(t)))*(Math.pow(Math.sin(Math.PI*t/2), 2)) : t);
+                for(var i=0, n=aux.length-1 ; i<=n ; i++){
+                    var bern = this.bernstein(n, i, pct);
+                    x += aux[i][1]*bern;
+                    y += aux[i][2]*bern;
+                }
+                this.curvePath.lineTo(x, y);
+                if(x < 0 || y < 0 || x > stage.width || y > stage.height) break;
+            }
+            
+            this.curvePath.moveTo(this.controlPoints[0][0].attr('x'), this.controlPoints[0][0].attr('y'));
             var step = 1/this.nfEvaluation;
             var aux = (this.cbInterpolation ? this.interPoints : this.controlPath.segments());
             for(var t=step ; t<1 ; t+=step){
                 var x = 0, y = 0;
+                var pct = (this.cbInterpolation ? Math.pow(Math.sin(Math.PI*t/2), 2) : t);
                 for(var i=0, n=aux.length-1 ; i<=n ; i++){
-                    var bern = this.bernstein(n, i, t);
+                    var bern = this.bernstein(n, i, pct);
                     x += aux[i][1]*bern;
                     y += aux[i][2]*bern;
                 }
                 this.curvePath.lineTo(x, y);
             }
+            
             var final = this.controlPoints.length-1;
-            this.curvePath.lineTo(this.controlPoints[final].attr('x'), this.controlPoints[final].attr('y'));
+            this.curvePath.lineTo(this.controlPoints[final][0].attr('x'), this.controlPoints[final][0].attr('y'));
+            for(var t=1+step ; this.cbExtrapolation ; t+=step){
+                var x = 0, y = 0;
+                var pct = (this.cbInterpolation ? Math.floor((t+1)/2)*2+(Math.pow(-1, Math.floor(t)))*(Math.pow(Math.sin(Math.PI*t/2), 2)) : t);
+                for(var i=0, n=aux.length-1 ; i<=n ; i++){
+                    var bern = this.bernstein(n, i, pct);
+                    x += aux[i][1]*bern;
+                    y += aux[i][2]*bern;
+                }
+                this.curvePath.lineTo(x, y);
+                if(x < 0 || y < 0 || x > stage.width || y > stage.height) break;
+            }
         } else {
             this.curvePath.clear();
             this.curvePath.moveTo(0, 0);
@@ -247,7 +294,7 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
         stage.removeChild(this.controlPath);
         stage.removeChild(this.curvePath);
         for(var i=0 ; i<this.controlPoints.length ; i++){
-            stage.removeChild(this.controlPoints[i]);
+            stage.removeChild(this.controlPoints[i][0]);
         }
     };
 
@@ -256,12 +303,16 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
         var mean, value;
         while (begin <= end){
             mean = parseInt((begin + end)/2);
-            value = this.controlPoints[mean].id;
+            value = this.controlPoints[mean][0].id;
             if(id == value) return mean;
             if(id < value) end = mean-1;
             else begin = mean+1;
         }
         return -1;
+    };
+    
+    this.changePropety = function(i){
+        this.controlPoints[i][1] = !this.controlPoints[i][1];
     }
 }
 
@@ -301,10 +352,10 @@ function findNextColor(){
 
 function insertCurve(control){
     var color = findNextColor();
-    var curve = new Curve(color, control[0], control[1], control[2], control[3], control[4]);
+    var curve = new Curve(color, control[0], control[1], control[2], control[3], control[4], control[5]);
     curves.push(curve);
     stage.sendMessage('insertCurveHTML', {
-        data: [curves.length, curve.getCBPoints(), curve.getCBPolygon(), curve.getCBCurve(), curve.getNFEvaluation(), curve.getCBInterpolation()]
+        data: [curves.length, curve.getCBPoints(), curve.getCBPolygon(), curve.getCBCurve(), curve.getNFEvaluation(), curve.getCBInterpolation(), curve.getCBExtrapolation()]
     });
 }
 
@@ -332,6 +383,7 @@ stage.on('message:selectCBAll', function(data) {
             curves[i].setCBCurve(curve.getCBCurve());
             curves[i].setNFEvaluation(curve.getNFEvaluation());
             curves[i].setCBInterpolation(curve.getCBInterpolation());
+            curves[i].setCBExtrapolation(curve.getCBExtrapolation());
             curves[i].redraw();
         }
     }
@@ -389,6 +441,19 @@ stage.on('message:selectCBInterpolation', function(data) {
     }
 })
 
+stage.on('message:selectCBExtrapolation', function(data) {
+    if(cbAll){
+        for(var i=0 ; i<curves.length ; i++){
+            curves[i].setCBExtrapolation(data.data);
+            curves[i].redraw();
+        }
+    } else {
+        var curve = curves[index];
+        curve.setCBExtrapolation(data.data);
+        curve.redraw();
+    }
+})
+
 stage.on('message:modifyEvaluation', function(data) {
     if(cbAll){
         for(var i=0 ; i<curves.length ; i++){
@@ -407,14 +472,18 @@ stage.on('message:selectCurve', function(data) {
         index = data.data;
         var curve = curves[data.data];
         stage.sendMessage('selectCurveHTML', {
-            data: [curve.getCBPoints(), curve.getCBPolygon(), curve.getCBCurve(), curve.getNFEvaluation(), colors[curve.getColor()][0], curve.getCBInterpolation()]
+            data: [curve.getCBPoints(), curve.getCBPolygon(), curve.getCBCurve(), curve.getNFEvaluation(), colors[curve.getColor()][0], curve.getCBInterpolation(), curve.getCBExtrapolation()]
         });
     } else {
         index = -1;
         stage.sendMessage('selectCurveHTML', {
-            data: [true, true, true, 200, false]
+            data: [true, true, true, 200, false, false]
         });
     }
+})
+
+stage.on('message:changeFunction', function(data) {
+    func = data.data;
 })
 
 stage.on('pointerdown', function(event) {
@@ -446,8 +515,14 @@ stage.on('pointerdown', function(event) {
             });
 
             point.on('doubleclick', function(rEvent) {
-                curve.removePoint(this);
-                curve.redrawCurve();
+                if(func == 0){
+                    curve.removePoint(this);
+                    curve.redrawCurve();   
+                } else {
+                    curve.changePropety(curve.searchCircle(this.id), func);
+                    console.log("CHEGUEI");
+                    curve.redrawCurve();
+                }
             });
         }
     }

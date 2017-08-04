@@ -44,12 +44,23 @@
         <input id="cbInterpolation" type="checkbox" onclick="selectCBInterpolation()"/>
         <label class="text">Interpolação</label>
         
+        <br>
+        <input id="cbExtrapolation" type="checkbox" onclick="selectCBExtrapolation()"/>
+        <label class="text">Extrapolação</label>
+        
         <br><br>
         <label class="subtitle">Número de avaliações:</label>
         <input id="nfEvaluation" type = "number" value = "200" min = "0"/>
         <button id="ok" onclick="modifyEvaluation()">OK</button>
-
         
+        <div id="function" style="display:none;">
+          <br>
+          <label class="subtitle">Função do click-duplo:</label><br>
+          <input id="remove" type="radio" name="function" value="0" onchange="rbFunction(0)" checked>
+          <label class="text">Remover</label><br>
+          <input type="radio" name="function" value="1" onchange="rbFunction(1)">
+          <label class="text">Grau de impacto</label>
+        </div>
       </div>
       
       <hr align="left" size="1" color=darkgray>
@@ -92,6 +103,8 @@
         document.getElementById("cbCurve").checked = data.data[3];
         document.getElementById("nfEvaluation").value = data.data[4];
         document.getElementById("cbInterpolation").checked = data.data[5];
+        document.getElementById("cbExtrapolation").checked = data.data[6];
+        displayFunction();
       });
 
       m.on('message:selectCurveHTML', function(data) {
@@ -102,12 +115,15 @@
         document.getElementById("cbCurve").checked = data.data[2];
         document.getElementById("nfEvaluation").value = data.data[3];
         document.getElementById("cbInterpolation").checked = data.data[5];
+        document.getElementById("cbExtrapolation").checked = data.data[6];
+        displayFunction();
       });
 
       m.on('message:removeCurveHTML', function(data) {
         var sCurve = document.getElementById('sCurve');
         sCurve.remove(sCurve.length-1);
         selectCurve();
+        displayFunction();
       });
     </script>
   </body>
