@@ -1,13 +1,3 @@
-function displayFunction(){
-    rbFunction(0);
-    document.getElementById('remove').checked = true;
-    if(document.getElementById('cbInterpolation').checked){
-        document.getElementById('function').style.display = 'block';
-    } else{
-        document.getElementById('function').style.display = 'none';
-    }
-}
-
 function insertCurve(){
     if(document.getElementById('cbAll').checked){
         var cbPoint = document.getElementById('cbPoint').checked
@@ -70,7 +60,6 @@ function selectCBCurve(){
 
 function selectCBInterpolation(){
     var cbInterpolation = document.getElementById('cbInterpolation').checked;
-    displayFunction();
     m.sendMessage('selectCBInterpolation', {
         data: cbInterpolation
     });
@@ -95,10 +84,4 @@ function modifyEvaluation(){
         });
         nfEvaluation.value = 0;
     }
-}
-
-function rbFunction(n){
-    m.sendMessage('changeFunction', {
-        data: n
-    });
 }

@@ -22,7 +22,6 @@ var colors=[['#1abc9c', true],
             ['#2c3e50', true],];
 var curves = [];
 var index = -1;
-var func = 0;
 var cbAll = false;
 
 insertGrid();
@@ -67,14 +66,29 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
 
     this.calcInterpolation = function(){
         this.interPoints = this.controlPath.segments();
+        
         var bern = [];
         for(var j=0, n=this.interPoints.length-1 ; j<=n ; j++){
             bern.push([]);
             for(var i=0 ; i<=n ; i++){
                 var pct = Math.pow(Math.sin(Math.PI*(j/n)/2), 2);
-                bern[j].push(this.bernstein(n, i, pct));
+                bern[bern.length-1].push(this.bernstein(n, i, pct));
             }
         }
+        
+        for(var j=0, n = this.interPoints.length-1 ; j<=n ; j++){
+            if(this.controlPoints[j][1]) continue;
+            var x = 0, y = 0;
+            var aux = this.controlPath.segments();
+            for(var i=0 ; i<=n ; i++){
+                var bernCoef = this.bernstein(n, i, j/n);
+                x += aux[i][1]*bernCoef;
+                y += aux[i][2]*bernCoef;
+            }
+            this.interPoints[j][1] = x;
+            this.interPoints[j][2] = y;
+        }
+        
         for(var i=0, n=this.interPoints.length-1 ; i<=n ; i++){
             for(var j=0 ; j<=n ; j++){
                 if(bern[j][i] != 0 && bern[j][i] != 1){
@@ -257,8 +271,6 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
             }
             
             this.curvePath.moveTo(this.controlPoints[0][0].attr('x'), this.controlPoints[0][0].attr('y'));
-            var step = 1/this.nfEvaluation;
-            var aux = (this.cbInterpolation ? this.interPoints : this.controlPath.segments());
             for(var t=step ; t<1 ; t+=step){
                 var x = 0, y = 0;
                 var pct = (this.cbInterpolation ? Math.pow(Math.sin(Math.PI*t/2), 2) : t);
@@ -312,7 +324,9 @@ function Curve(color, cbPoint, cbPolygon, cbCurve, nfEvaluation, cbInterpolation
     };
     
     this.changePropety = function(i){
-        this.controlPoints[i][1] = !this.controlPoints[i][1];
+        if(this.cbInterpolation){
+            this.controlPoints[i][1] = !this.controlPoints[i][1];
+        }
     }
 }
 
@@ -482,10 +496,7 @@ stage.on('message:selectCurve', function(data) {
     }
 })
 
-stage.on('message:changeFunction', function(data) {
-    func = data.data;
-})
-
+var active = true;
 stage.on('pointerdown', function(event) {
     if(index >= 0){
         if(!(event.target instanceof Circle)) {
@@ -515,15 +526,27 @@ stage.on('pointerdown', function(event) {
             });
 
             point.on('doubleclick', function(rEvent) {
-                if(func == 0){
-                    curve.removePoint(this);
-                    curve.redrawCurve();   
-                } else {
-                    curve.changePropety(curve.searchCircle(this.id), func);
-                    console.log("CHEGUEI");
-                    curve.redrawCurve();
-                }
+                curve.removePoint(this);
+                curve.redrawCurve();
             });
         }
     }
+});
+
+var flag = true;
+stage.on('keydown', function(eventKey) {
+    stage.on('pointerdown', function(eventMouse) {
+        if(index >= 0 && flag && eventMouse.target instanceof Circle && eventKey.keyCode == 16){
+            eventKey.keyCode = 0;
+            var point = eventMouse.target;
+            var curve = curves[searchCurve(point.id)];
+            curve.changePropety(curve.searchCircle(point.id));
+            curve.redrawCurve();
+            flag = false;
+        }
+    });
+});
+
+stage.on('keyup', function(event) {
+    flag = true;
 });
